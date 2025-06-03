@@ -2,20 +2,64 @@ package main
 
 import (
 	"fmt"
+	"image/color"
+
+	"gocv.io/x/gocv"
 )
 
-//TIP <p>To run your code, right-click the code and select <b>Run</b>.</p> <p>Alternatively, click
-// the <icon src="AllIcons.Actions.Execute"/> icon in the gutter and select the <b>Run</b> menu item from here.</p>
-
 func main() {
-	//TIP <p>Press <shortcut actionId="ShowIntentionActions"/> when your caret is at the underlined text
-	// to see how GoLand suggests fixing the warning.</p><p>Alternatively, if available, click the lightbulb to view possible fixes.</p>
-	s := "gopher"
-	fmt.Println("Hello and welcome Karina, %s!", s)
+	// set to use a video capture device 0
+	deviceID := 0
 
-	for i := 1; i <= 5; i++ {
-		//TIP <p>To start your debugging session, right-click your code in the editor and select the Debug option.</p> <p>We have set one <icon src="AllIcons.Debugger.Db_set_breakpoint"/> breakpoint
-		// for you, but you can always add more by pressing <shortcut actionId="ToggleLineBreakpoint"/>.</p>
-		fmt.Println("i =", 1000000/i)
+	// open webcam
+	webcam, err := gocv.OpenVideoCapture(deviceID)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer webcam.Close()
+
+	// open display window
+	window := gocv.NewWindow("Face Detect")
+	defer window.Close()
+
+	// prepare image matrix
+	img := gocv.NewMat()
+	defer img.Close()
+
+	// color for the rect when faces detected
+	blue := color.RGBA{0, 0, 255, 0}
+
+	// load classifier to recognize faces
+	classifier := gocv.NewCascadeClassifier()
+	defer classifier.Close()
+
+	if !classifier.Load("data/data.xml") {
+		fmt.Println("Error reading cascade file: data/haarcascade_frontalface_default.xml")
+		return
+	}
+
+	fmt.Printf("start reading camera device: %v\n", deviceID)
+	for {
+		if ok := webcam.Read(&img); !ok {
+			fmt.Printf("cannot read device %v\n", deviceID)
+			return
+		}
+		if img.Empty() {
+			continue
+		}
+
+		// detect faces
+		rects := classifier.DetectMultiScale(img)
+		fmt.Printf("found %d faces\n", len(rects))
+
+		// draw a rectangle around each face on the original image
+		for _, r := range rects {
+			gocv.Rectangle(&img, r, blue, 3)
+		}
+
+		// show the image in the window, and wait 1 millisecond
+		window.IMShow(img)
+		window.WaitKey(1)
 	}
 }
